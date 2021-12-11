@@ -12,7 +12,7 @@ def convert_to_opencv(file, cv2_img_flag=cv.IMREAD_ANYCOLOR):
 
 
 def convert_to_bytes(open_cv_img):
-    _, buffer = cv.imencode('.jpg', open_cv_img)
+    _, buffer = cv.imencode('.png', open_cv_img)
     return buffer.tobytes()
 
 

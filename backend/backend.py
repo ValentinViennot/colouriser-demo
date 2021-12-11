@@ -2,6 +2,9 @@
 from flask import Flask, Response, abort, request
 from flask_cors import CORS
 
+import os
+import requests
+
 from colorize import colorize_image
 
 api = Flask(__name__)
@@ -18,8 +21,23 @@ def post_image(models={
     if 'image' not in request.files:
         abort(400, "Please send a file with key=image")
     file = request.files['image']
-    return Response(colorize_image(file, models[version]), mimetype="image/jpeg")
+    colorized_img = colorize_image(file, models[version])
 
+    headers = {}
+    if os.getenv("RESTORE_ENABLED", False):
+        address = os.getenv("RESTORE_ADDRESS", '127.0.0.1')
+        port = os.getenv("RESTORE_PORT", '9002')
+        restore = requests.post(f'http://{address}:{port}/restore', files={'image': colorized_img})
+        headers={
+            'X-Image-Hash': restore.json()['hash'],
+            'Access-Control-Expose-Headers': 'X-Image-Hash'
+        }
+
+    return Response(
+        colorized_img,
+        headers=headers,
+        mimetype="image/png"
+    )
 
 if __name__ == '__main__':
     api.run(host="0.0.0.0")
