@@ -22,7 +22,6 @@ COPY . .
 
 ENV GRPC_ADDRESS=127.0.0.1
 ENV GRPC_PORT=9001
-ENV RESTORE_ENABLED=False
 
 ENTRYPOINT [ "/opt/venv/bin/python3" ]
 CMD [ "backend.py" ]
