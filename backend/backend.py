@@ -24,7 +24,7 @@ def post_image(models={
     colorized_img = colorize_image(file, models[version])
 
     headers = {}
-    if os.getenv("RESTORE_ENABLED", False):
+    if os.getenv("RESTORE_ENABLED", False) is True:
         address = os.getenv("RESTORE_ADDRESS", '127.0.0.1')
         port = os.getenv("RESTORE_PORT", '9002')
         restore = requests.post(f'http://{address}:{port}/restore', files={'image': colorized_img})
