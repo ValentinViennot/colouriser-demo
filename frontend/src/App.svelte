@@ -24,7 +24,7 @@
 
   let versions = versions_bw;
   let data = undefined;
-  let disabledFaces;
+  let disabledFaces = [];
 
   const setImage = (version, blob) => {
     let reader = new FileReader();
@@ -61,7 +61,7 @@
       requestRestoredPic();
     }).subscribe((response) => {
       const base_path = `${restore_backend_url}/img/${response.hash}`;
-      data.restored.image = `${base_path}${response.restored}`;
+      data.restored.image = `${base_path}${response.restored}?faces=${disabledFaces.join(",")}`;
       data.faces.images = response.faces.map((face_url) => ({
         id: parseInt(face_url.split("/").reverse()[0].split(".")[0]),
         url: `${base_path}${face_url}`,
