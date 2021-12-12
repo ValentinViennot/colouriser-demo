@@ -4,11 +4,12 @@
   import Slider from "@bulatdashiev/svelte-slider";
 
   import { Observable } from "rxjs";
-  // import FacePicker from "./FacePicker.svelte";
+  import FacePicker from "./FacePicker.svelte";
 
-  const restore_backend_url = "http://localhost:8081"; // TODO remove -dev
-  // const colorize_backend_url = "/api";
-  const colorize_backend_url = "http://localhost:8080"; // TODO remove -dev
+  const restore_backend_url = "/api"; // TODO remove -dev
+  // const restore_backend_url = "http://localhost:8081"; // TODO remove -dev
+  const colorize_backend_url = "/api";
+  // const colorize_backend_url = "http://localhost:8080"; // TODO remove -dev
 
   const headers = {
     origin: "Original",
@@ -23,7 +24,7 @@
 
   let versions = versions_bw;
   let data = undefined;
-  // let selectedFaces;
+  let disabledFaces;
 
   const setImage = (version, blob) => {
     let reader = new FileReader();
@@ -32,14 +33,13 @@
   };
 
   // data = JSON.parse(localStorage.getItem("data")); // TODO: remove -dev
-
-  const onRestoreFaces = async (hash) => {
-    data = { ...data, restored: { hash }, faces: {} };
+  const onRestoreFaces = async (hash, faces = {}) => {
     // // TODO: remove -dev
     // data["v1"].image = undefined;
     // data["v2"].image = undefined;
     // localStorage.setItem("data", JSON.stringify(data));
     // return
+    data = { ...data, restored: { hash }, faces };
     versions = versions_restore;
     new Observable((subscriber) => {
       let poll;
@@ -65,35 +65,26 @@
       data.faces.images = response.faces.map((face_url) => ({
         id: parseInt(face_url.split("/").reverse()[0].split(".")[0]),
         url: `${base_path}${face_url}`,
-        disabled: true,
       }));
     });
-  };
-
-  const onFaceSelected = (face) => {
-    face.disabled = !face.disabled;
-    data.faces.touched = true;
-    data.faces = { ...data.faces };
   };
 
   const onFaceRefresh = async () => {
     let body = new FormData();
     body.append("hash", data.restored.hash);
-    body.append(
-      "hide_faces",
-      data.faces.images
-        .filter((image) => image.disabled)
-        .map((image) => image.id)
-        .join(",")
-    );
+    body.append("hide_faces", disabledFaces.join(","));
     fetch(`${restore_backend_url}/restore`, {
       method: "POST",
       body,
-    }).then(() => onRestoreFaces(data.restored.hash));
+    }).then(() => onRestoreFaces(data.restored.hash, data.faces));
+    data.faces.touched = false;
+  };
+
+  const onPressBack = () => {
+    versions = versions_bw;
   };
 
   const onFileSelected = async (e) => {
-    // TODO: send to restore backend async
     let image = e.target.files[0];
     data = { v1: {}, v2: {}, origin: {} };
     versions = versions_bw;
@@ -108,12 +99,10 @@
         setImage(version, blob);
         data[version].saturation = [100];
         data[version].hash = result.headers.get("x-image-hash");
-        // TODO: original hash must be queried
       } else data[version].error = true;
     };
 
     const colorizeVersion = async (version) =>
-      // TODO
       fetch(`${colorize_backend_url}/colorize?version=${version}`, {
         method: "POST",
         body,
@@ -121,6 +110,13 @@
 
     colorizeVersion("v1");
     colorizeVersion("v2");
+
+    fetch(`${restore_backend_url}/restore`, {
+      method: "POST",
+      body,
+    }).then(async (response) => {
+      if (response.ok) data.origin.hash = (await response.json()).hash;
+    });
   };
 </script>
 
@@ -150,12 +146,18 @@
       <div class="row">
         {#each versions as version}
           <div class="col-4">
-            <!-- TODO: restored = goback -->
             <h2>
               {headers[version]}
               {#if version == "faces" && !!data.faces.touched}
                 <button on:click={onFaceRefresh}>Apply</button>
-                <!-- <i class="p-icon--success"></i> -->
+              {:else if version == "restored"}
+                <button on:click={onPressBack}>back</button>
+              {:else if !!data[version].hash}
+                <i
+                  on:click={() => onRestoreFaces(data[version].hash)}
+                  class="button-faces p-icon--user"
+                  title={"Restore faces on " + headers[version]}
+                />
               {/if}
             </h2>
           </div>
@@ -172,21 +174,11 @@
                 style="filter: saturate({data[version].saturation ?? 100}%);"
               />
             {:else if !!data[version].images}
-              <div class="p-logo-section">
-                <div class="p-logo-section__items">
-                  {#each data[version].images as face}
-                    <div class="p-logo-section__item">
-                      <img
-                        src={face.url}
-                        alt={"face " + face.id}
-                        class={face.disabled ? "face disabled" : "face"}
-                        on:click={() => onFaceSelected(face)}
-                      />
-                    </div>
-                  {/each}
-                </div>
-              </div>
-              <!-- <FacePicker bind:selected={selectedFaces} faces={data[version].images} /> -->
+              <FacePicker
+                bind:disabled={disabledFaces}
+                on:touch={() => (data.faces.touched = true)}
+                faces={data[version].images}
+              />
             {:else if !!data[version].error}
               <p>
                 Error getting version {version}
@@ -204,12 +196,6 @@
           <div class="col-4 slider">
             {#if !!data[version].saturation}
               <Slider max="300" bind:value={data[version].saturation} />
-            {/if}
-            <!-- TODO: enable face restoration on colourised and original picture -->
-            {#if !!data[version].hash}
-              <button on:click={() => onRestoreFaces(data[version].hash)}>
-                {data[version].hash}
-              </button>
             {/if}
           </div>
         {/each}
@@ -254,14 +240,10 @@
 
   img {
     width: 100%;
+  }
 
-    &.face {
-      padding: 10px;
-    }
-
-    &.disabled {
-      opacity: 0.5;
-    }
+  i.button-faces {
+    cursor: pointer;
   }
 
   .row div.slider {

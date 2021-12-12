@@ -1,14 +1,24 @@
 <script>
-  export let selected = [];
+  import { onMount, createEventDispatcher } from "svelte";
+  
+  const dispatch = createEventDispatcher();
+
+  export let disabled = [];
   export let faces = [];
 
+  onMount(async () => {
+    disabled = faces.map((f) => f.id);
+  });
+
   const onFaceSelected = (face) => {
-    if (selected.includes(face.id)) {
-      selected = selected.filter((s) => s !== face.id);
+    touch();
+    if (disabled.includes(face.id)) {
+      disabled = disabled.filter((s) => s !== face.id);
     } else {
-      selected = [...selected, face.id];
+      disabled = [...disabled, face.id];
     }
   };
+  const touch = () => dispatch('touch');
 </script>
 
 <div class="face-picker p-logo-section">
@@ -19,7 +29,7 @@
           class="face"
           src={face.url}
           alt={"face " + face.id}
-          class:disabled={!selected.includes(face.id)}
+          class:disabled={disabled.includes(face.id)}
           on:click={() => onFaceSelected(face)}
         />
       </div>
@@ -28,11 +38,6 @@
 </div>
 
 <style lang="scss">
-  .face-picker {
-    border: 1px solid red !important;
-    background-color: lightcoral;
-  }
-
   img {
     width: 100%;
 
